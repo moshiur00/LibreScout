@@ -1,0 +1,9 @@
+torch
+streamlit
+Pillow
+transformers
+openai
+python-dotenv
+sentence-transformers
+faiss-cpu
+torch
