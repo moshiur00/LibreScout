@@ -2,6 +2,9 @@ import streamlit as st
 from PIL import Image
 from extract_image import extract_image_details
 from response_generate import generate_response
+from response_generate import search_google
+from response_generate import build_faiss_index
+from response_generate import query_faiss
 
 def load_interface():
     # Initialize session state for image details
@@ -24,13 +27,29 @@ def load_interface():
             with st.status("Processing image...", state="running"):
                 image = Image.open(uploaded_file)
                 st.session_state.image_details = extract_image_details(image)
+                snippets = search_google(st.session_state.image_details, num_results=10)
+
+                
 
             st.success("Image processed successfully.")
     else:
         st.stop()
 
     # Generate response
-    response = generate_response([st.session_state.image_details], "")
+    print(f"🔎 Searching Google for: {st.session_state.image_details}")
+    snippets = search_google(st.session_state.image_details)
+    
+    print("\n⚙️ Building FAISS index...")
+    index, snippet_texts = build_faiss_index(snippets)
+    
+    print("\n📚 Querying FAISS for best matches...")
+    context = query_faiss(index, snippet_texts, st.session_state.image_details)
+    
+    # print("\n🤖 Generating Final Answer...")
+    # final_answer = answer_with_context(st.session_state.image_details, context)
+    # print(final_answer)
+
+    response = generate_response([st.session_state.image_details], context, "")
     st.session_state.messages.append({"role": "assistant", "content": response})
 
     # Display assistant message
