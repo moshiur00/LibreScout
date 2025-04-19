@@ -1,1 +1,1 @@
-# RAG-Pipeline-For-Book-Image-Query
+# Libre Scout
