@@ -4,6 +4,7 @@ RAG based AI agent to scout over the internet and knowledge base for helping boo
 ### Technologies Used
 - **SerpAPI**: For google search results
 - **Salesforce BLIP Model**: For generating image captions.
+- **FAISS Vector Database**: For storing the vector embeddings and similarity search
 - **OpenAI GPT-3.5-turbo**: For generating responses to user questions.
 - **Streamlit**: For building the interactive web interface.
 - **Pillow**: For image processing.
