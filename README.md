@@ -2,7 +2,7 @@
 RAG based AI agent to scout over the internet and knowledge base for helping book buyers by providing informations.
 
 ### Technologies Used
-- ** SerpAPI**: For google search results
+- **SerpAPI**: For google search results
 - **Salesforce BLIP Model**: For generating image captions.
 - **OpenAI GPT-3.5-turbo**: For generating responses to user questions.
 - **Streamlit**: For building the interactive web interface.
