@@ -1,5 +1,6 @@
 # Libre Scout
-RAG based AI agent to scout over the internet and knowledge base for helping book buyers by providing informations.
+An AI agent powered by Retrieval-Augmented Generation (RAG) that scans the internet and internal knowledge bases to assist book buyers by providing relevant and accurate information.
+
 
 ### Technologies Used
 - **SerpAPI**: For google search results
