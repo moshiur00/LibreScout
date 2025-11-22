@@ -11,10 +11,7 @@ import numpy as np
 
 load_dotenv()
 client = OpenAI()
-# Load an embedding model (using Sentence Transformers)
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-
-# Load environment variables
 SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY")
 
 
@@ -46,7 +43,7 @@ def search_book_offers(book_query, num_results=5):
 
     search = GoogleSearch({
         "q": book_query,
-        "tbm": "shop",          # Google Shopping tab
+        "tbm": "shop",
         "num": num_results,
         "api_key": SERPAPI_API_KEY,
     })
@@ -54,7 +51,6 @@ def search_book_offers(book_query, num_results=5):
     try:
         results = search.get_dict()
     except Exception:
-        # Fail gracefully if SerpAPI call fails
         return []
 
     offers = []
@@ -64,7 +60,6 @@ def search_book_offers(book_query, num_results=5):
             "price": item.get("price") or item.get("extracted_price"),
             "rating": item.get("rating"),
             "reviews": item.get("reviews"),
-            # sometimes it's "product_link", sometimes "link"
             "link": item.get("product_link") or item.get("link"),
             "source": item.get("source"),
         })

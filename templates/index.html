@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Book Finder & Analyzer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <header class="app-header">
+        <div class="app-header-inner">
+            <div class="logo">
+                <span class="logo-mark">📚</span>
+                <span class="logo-text">Book Finder & Analyzer</span>
+            </div>
+            <div class="header-tagline">
+                Discover books by your taste or from a single cover image.
+            </div>
+        </div>
+    </header>
+
+    <main class="app-main">
+        <!-- TOP FORM: choose ONE mode -->
+        <section class="hero-section">
+            <form class="combined-form" method="POST" enctype="multipart/form-data">
+                <div class="card combined-card">
+                    <h2>How would you like to search?</h2>
+                    <p class="muted">
+                        Choose one option below.
+                    </p>
+
+                    <!-- Mode toggle -->
+                    <div class="mode-toggle">
+                        <label class="mode-option">
+                            <input type="radio" name="search_mode" value="preference" {% if search_mode !='image'
+                                %}checked{% endif %}>
+                            <span>Search by preference</span>
+                        </label>
+                        <label class="mode-option">
+                            <input type="radio" name="search_mode" value="image" {% if search_mode=='image' %}checked{%
+                                endif %}>
+                            <span>Analyze book cover</span>
+                        </label>
+                    </div>
+
+                    <div class="field-separator"></div>
+
+                    <!-- Preference group -->
+                    <div class="field-group group-preference">
+                        <label class="field-label" for="user_preference">Describe what kind of book you want</label>
+                        <textarea id="user_preference" name="user_preference" rows="4"
+                            placeholder="e.g. dark fantasy with political intrigue, light cozy romance, short sci-fi novella">{{ user_preference }}</textarea>
+
+                        {% if preference_error %}
+                        <div class="alert alert-error small">
+                            {{ preference_error }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Image group -->
+                    <div class="field-group group-image">
+                        <label class="field-label" for="book_image">Upload a book cover image</label>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="book_image" name="book_image" accept="image/*">
+                        </div>
+
+                        {% if image_error %}
+                        <div class="alert alert-error small">
+                            {{ image_error }}
+                        </div>
+                        {% endif %}
+
+                        {% if image_url %}
+                        <div class="image-preview">
+                            <img src="{{ image_url }}" alt="Uploaded book cover">
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="primary-btn">
+                        Analyze &amp; Recommend
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- RESULTS SECTION -->
+        <section class="results-section">
+
+            <!-- Recommended books: only for preference mode -->
+            {% if search_mode == 'preference' and (recommended_books or books_error_raw) %}
+            <div class="card recommended-card">
+                <div class="section-header">
+                    <h2>Recommended books</h2>
+                    <p class="muted">Based on your description.</p>
+                </div>
+
+                {% if books_error_raw %}
+                <div class="alert alert-error">
+                    <strong>We couldn’t parse the recommendation response.</strong>
+                    <details>
+                        <summary>Show raw output</summary>
+                        <pre>{{ books_error_raw }}</pre>
+                    </details>
+                </div>
+                {% endif %}
+
+                {% if recommended_books %}
+                <div class="cards-grid">
+                    {% for book in recommended_books %}
+                    <article class="book-card">
+                        <h3>{{ book.title or 'Unknown title' }}</h3>
+                        <p class="muted">
+                            {{ book.author or 'Unknown author' }} ·
+                            {{ book.language or 'Unknown language' }}
+                        </p>
+
+                        {% if book.genres %}
+                        <p class="badge-row">
+                            {% for g in book.genres %}
+                            <span class="badge">{{ g }}</span>
+                            {% endfor %}
+                        </p>
+                        {% endif %}
+
+                        {% if book.description %}
+                        <p class="book-description">{{ book.description }}</p>
+                        {% endif %}
+
+                        {% if book.relevance %}
+                        <p class="muted small">
+                            <strong>Why this matches:</strong> {{ book.relevance }}
+                        </p>
+                        {% endif %}
+                    </article>
+                    {% endfor %}
+                </div>
+                {% else %}
+                {% if not books_error_raw and user_preference %}
+                <p class="muted">No matching books were found.</p>
+                {% endif %}
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Image-based: OCR & book info -->
+            {% if ocr_text or book_info %}
+            <div class="card image-result-card">
+                <div class="section-header">
+                    <h2>Book information from image</h2>
+                    <p class="muted">Details extracted from the uploaded cover.</p>
+                </div>
+
+                {% if ocr_text %}
+                <h3 class="sub-heading">Extracted text (OCR)</h3>
+                <pre class="code-block">{{ ocr_text }}</pre>
+                {% endif %}
+
+                {% if book_info %}
+                <h3 class="sub-heading">Summary &amp; context</h3>
+                <div class="book-info">
+                    {{ book_info | safe }}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Purchase offers -->
+            {% if offers %}
+            <div class="card offers-card">
+                <div class="section-header">
+                    <h2>Where to buy this book</h2>
+                    <p class="muted">Top offers found online.</p>
+                </div>
+
+                <div class="offers-list">
+                    {% for offer in offers %}
+                    <div class="offer-row">
+                        <div class="offer-main">
+                            <h3>{{ offer.title or 'Offer' }}</h3>
+                            <p class="muted">
+                                {% if offer.price %}<strong>{{ offer.price }}</strong>{% endif %}
+                                {% if offer.rating %}
+                                · ⭐ {{ offer.rating }}/5
+                                {% if offer.reviews %}
+                                ({{ offer.reviews }} reviews)
+                                {% endif %}
+                                {% endif %}
+                                {% if offer.source %} · {{ offer.source }}{% endif %}
+                            </p>
+                        </div>
+                        {% if offer.link %}
+                        <div class="offer-action">
+                            <a class="secondary-btn" href="{{ offer.link }}" target="_blank" rel="noopener">
+                                View offer
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <p class="muted small">
+            Built with Flask &amp; OpenAI. This is a demo and may not be perfectly accurate.
+        </p>
+    </footer>
+
+    <script>
+        // Show only the selected input group and the corresponding result cards
+        function updateMode() {
+            const mode = document.querySelector('input[name="search_mode"]:checked')?.value || 'preference';
+            const prefGroup = document.querySelector('.group-preference');
+            const imgGroup = document.querySelector('.group-image');
+            const recCard = document.querySelector('.recommended-card');
+            const imageResultCard = document.querySelector('.image-result-card');
+            const offersCard = document.querySelector('.offers-card');
+
+            // Inputs
+            if (prefGroup && imgGroup) {
+                if (mode === 'preference') {
+                    prefGroup.style.display = 'block';
+                    imgGroup.style.display = 'none';
+                } else {
+                    prefGroup.style.display = 'none';
+                    imgGroup.style.display = 'block';
+                }
+            }
+
+            // Preference results
+            if (recCard) {
+                recCard.style.display = (mode === 'preference') ? '' : 'none';
+            }
+
+            // Image results
+            if (imageResultCard) {
+                imageResultCard.style.display = (mode === 'image') ? '' : 'none';
+            }
+            if (offersCard) {
+                offersCard.style.display = (mode === 'image') ? '' : 'none';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('input[name="search_mode"]').forEach(r => {
+                r.addEventListener('change', updateMode);
+            });
+            updateMode();
+        });
+    </script>
+</body>
+
+</html>

@@ -8,3 +8,7 @@ sentence-transformers
 faiss-cpu
 torch
 google-search-results
+easyocr
+flask
+werkzeug
+pillow

@@ -1,7 +1,9 @@
 from PIL import Image
 from transformers import BlipForConditionalGeneration, BlipProcessor
 import torch
+import easyocr
 
+torch.cuda.empty_cache()
 # Device setup
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -17,6 +19,9 @@ def extract_image_details(image):
         num_beams=5,
         do_sample=False
     )
-    generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+    caption = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+    reader = easyocr.Reader(['en'])
+    image_text = ' '.join([item[1] for item in reader.readtext(image)])
+    generated_text = "Book Name: "+ image_text + " with caption " + caption
     print(f"BLIP Model Description: {generated_text}")  # Debugging print statement
     return generated_text
