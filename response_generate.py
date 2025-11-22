@@ -9,12 +9,12 @@ import faiss
 import numpy as np
 
 
+load_dotenv()
 client = OpenAI()
 # Load an embedding model (using Sentence Transformers)
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 # Load environment variables
-load_dotenv()
 SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY")
 
 
@@ -33,7 +33,44 @@ def search_google(query, num_results=10):
             snippet = res.get("snippet", "")
             snippets.append(f"{title}: {snippet}")
     
-    return snippets 
+    return snippets
+
+
+def search_book_offers(book_query, num_results=5):
+    """
+    Use SerpAPI to fetch Google Shopping results for the book.
+    Returns a list of offer dicts with title, price, rating, reviews, link, source.
+    """
+    if not SERPAPI_API_KEY:
+        return []
+
+    search = GoogleSearch({
+        "q": book_query,
+        "tbm": "shop",          # Google Shopping tab
+        "num": num_results,
+        "api_key": SERPAPI_API_KEY,
+    })
+
+    try:
+        results = search.get_dict()
+    except Exception:
+        # Fail gracefully if SerpAPI call fails
+        return []
+
+    offers = []
+    for item in results.get("shopping_results", []):
+        offers.append({
+            "title": item.get("title"),
+            "price": item.get("price") or item.get("extracted_price"),
+            "rating": item.get("rating"),
+            "reviews": item.get("reviews"),
+            # sometimes it's "product_link", sometimes "link"
+            "link": item.get("product_link") or item.get("link"),
+            "source": item.get("source"),
+        })
+
+    return offers
+
 
 # Build FAISS index from text snippets
 def build_faiss_index(snippets):
@@ -45,6 +82,7 @@ def build_faiss_index(snippets):
     
     return index, snippets  # Keep snippets for later lookup
 
+
 # Query FAISS for most relevant context
 def query_faiss(index, snippets, question, top_k=5):
     question_embedding = embedding_model.encode([question])
@@ -55,34 +93,54 @@ def query_faiss(index, snippets, question, top_k=5):
 
 
 def build_prompt(extracted_text, context, question=None):
+    """
+    extracted_text: main text about the book (e.g., BLIP caption or OCR)
+    context: additional web snippets (from Google / RAG)
+    """
     base_prompt = f"""
-        Context: The following text is extracted from a book page via OCR. It may be incomplete or have minor errors.
+        Context: The following text is extracted from or related to a book (e.g., cover, description, quotes). 
+        It may be incomplete or have minor errors.
         Extracted Text: \"\"\" {extracted_text} \"\"\"
     """
     if context:
-        base_prompt += f"""The context is given as following"""
-        base_prompt += f"""{context}
+        base_prompt += f"""
+        Additional web snippets about the same book:
+        {context}
         """
 
     if question:
-        base_prompt += f"""Question: {question}
-    
-    Instruction: Answer based only on the provided text. If the answer is not clearly available, state that the information is incomplete. """
+        base_prompt += f"""
+        Question: {question}
+
+        Instruction: Answer based only on the provided text and snippets above.
+        If the answer is not clearly available, explicitly say that the information is incomplete.
+        Do NOT invent details.
+        """
     else:
-        base_prompt += """Instruction: Summarize the key information from the text with book name, author, publication year and short summary review. Do not assume missing information. """
-    
+        base_prompt += """
+        Instruction: You are a book expert. Based only on the text above:
+        - Identify the most likely book title and author (or say "Unknown" if unclear).
+        - Provide, if available:
+          • Publication year
+          • Main genre
+          • 3–5 bullet points summarizing what the book is about
+          • A short, neutral note on who this book is for (target audience).
+        If any item cannot be determined from the text, say that it is not clearly specified.
+        Do NOT assume or invent missing information.
+        """
+
     return base_prompt.strip()
 
 
 def generate_response(retrieved_texts, query, max_tokens=150):
-    
+    # retrieved_texts is usually [image_description]; query is usually the RAG context
     context = "\n".join(retrieved_texts)
     prompt = build_prompt(context, query)
 
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "system", "content": "You are a helpful assistant and book expert."},
             {"role": "user", "content": prompt}
         ],
         temperature=1,
@@ -90,4 +148,3 @@ def generate_response(retrieved_texts, query, max_tokens=150):
         top_p=1
     )
     return response.choices[0].message.content
-
